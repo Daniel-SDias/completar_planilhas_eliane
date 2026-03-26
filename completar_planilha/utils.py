@@ -2,8 +2,8 @@ from openpyxl import load_workbook
 from openpyxl.styles.colors import COLOR_INDEX
 
 
-def identificar_extensao_arquivo():
-    ...
+def identificar_extensao_arquivo(caminho_arquivo):
+    return caminho_arquivo.suffix
 
 
 def carregar_planilha(caminho_arquivo):
@@ -40,9 +40,9 @@ def definir_tipo_lancamento(cor_tupla: tuple | dict | None) -> str:
     """
     if not isinstance(cor_tupla, tuple) or len(cor_tupla) != 3:
         return "entrada"
-        
+
     r, g, b = cor_tupla
-    
+
     # Se o vermelho for predominante, caracteriza como saída
     if r > g and r > b:
         return "saida"
@@ -61,13 +61,13 @@ def criar_dict_referencia(dados_aba, aba_referencia):
         historico = linha[6].strip()
         if historico in dict_referencia:
             continue
-        
+
         celula = aba_referencia[f"B{i}"]
-        
+
         cor_tupla = obter_valores_rgb_celula(celula)
         tipo_lancamento = definir_tipo_lancamento(cor_tupla)
         tipo_oposto = "entrada" if tipo_lancamento == "saida" else "saida"
-        
+
         deb = linha[3]
         cred = linha[4]
 
@@ -116,21 +116,21 @@ def hex_to_rgb(hex_str):
     """
     if not hex_str or not isinstance(hex_str, str):
         return None
-    
+
     # Remove o '#' se existir
     hex_str = hex_str.lstrip('#')
-    
+
     # Garante que temos 6 caracteres para converter
     if len(hex_str) == 6:
         r = int(hex_str[0:2], 16)
         g = int(hex_str[2:4], 16)
         b = int(hex_str[4:6], 16)
         return (r, g, b)
-        
+
     return None
 
 
-def obter_aba_atual(abas_planilhas:list) -> str | None:
+def obter_aba_atual(abas_planilhas: list) -> str | None:
     for aba in abas_planilhas:
         minuscula_aba = aba.lower()
         if "extrato" in minuscula_aba and "2026" in minuscula_aba:
@@ -142,12 +142,20 @@ def preencher_dados(dados_aba, dict_referencia, aba_atual):
 
     for i, linha in enumerate(dados_aba[1:], start=2):
         historico = linha[5].strip()
-        
+
         if dict_referencia.get(historico):
             celula = aba_atual[f"B{i}"]
-            
+
+            # Se a célula já tem valores de débito/crédito, não sobrescreve
+            valor_deb = aba_atual.cell(row=i, column=3).value
+            valor_cred = aba_atual.cell(row=i, column=4).value
+            if (valor_deb not in (None, "")) or (valor_cred not in (None, "")):
+                continue
+
             cor_tupla = obter_valores_rgb_celula(celula)
             tipo_lancamento = definir_tipo_lancamento(cor_tupla)
-            
-            aba_atual.cell(row=i, column=3).value = dict_referencia[historico][tipo_lancamento]["deb"]
-            aba_atual.cell(row=i, column=4).value = dict_referencia[historico][tipo_lancamento]["cred"]
+
+            aba_atual.cell(
+                row=i, column=3).value = dict_referencia[historico][tipo_lancamento]["deb"]
+            aba_atual.cell(
+                row=i, column=4).value = dict_referencia[historico][tipo_lancamento]["cred"]
